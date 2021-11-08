@@ -172,14 +172,12 @@ func executeCommandsAndWait(commands string, retryWaitAfter time.Duration, waits
 	// waits for conditions meet
 	for idx := range waits {
 		wait := &waits[idx]
-		waitFor(commands, wait, waitSet, cluster)
-		var retryAfter time.Duration
-		if wait.RetryWaitAfter > 0 {
-			retryAfter = wait.RetryWaitAfter
-		} else if retryWaitAfter > 0 {
-			retryAfter = retryWaitAfter
+		if wait.RetryWaitAfter == 0 {
+			// set retry wait after if not set
+			wait.RetryWaitAfter = retryWaitAfter
 		}
-		if retryAfter > 0 {
+		waitFor(commands, wait, waitSet, cluster)
+		if wait.RetryWaitAfter > 0 {
 			logger.Log.Infof("retrying the wait after [%v]", wait.RetryWaitAfter)
 			time.Sleep(wait.RetryWaitAfter)
 			waitFor(commands, wait, waitSet, cluster)
