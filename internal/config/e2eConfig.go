@@ -67,10 +67,11 @@ type Cleanup struct {
 }
 
 type Step struct {
-	Name    string `yaml:"name"`
-	Path    string `yaml:"path"`
-	Command string `yaml:"command"`
-	Waits   []Wait `yaml:"wait"`
+	Name           string        `yaml:"name"`
+	Path           string        `yaml:"path"`
+	Command        string        `yaml:"command"`
+	Waits          []Wait        `yaml:"wait"`
+	RetryWaitAfter time.Duration `yaml:"retryWaitAfter"`
 }
 
 type KindSetup struct {
@@ -99,15 +100,17 @@ type Manifest struct {
 }
 
 type Run struct {
-	Command string `yaml:"command"`
-	Waits   []Wait `yaml:"wait"`
+	Command        string        `yaml:"command"`
+	Waits          []Wait        `yaml:"wait"`
+	RetryWaitAfter time.Duration `yaml:"retryWaitAfter"`
 }
 
 type Wait struct {
-	Namespace     string `yaml:"namespace"`
-	Resource      string `yaml:"resource"`
-	LabelSelector string `yaml:"label-selector"`
-	For           string `yaml:"for"`
+	Namespace      string        `yaml:"namespace"`
+	Resource       string        `yaml:"resource"`
+	LabelSelector  string        `yaml:"label-selector"`
+	For            string        `yaml:"for"`
+	RetryWaitAfter time.Duration `yaml:"retryWaitAfter"`
 }
 
 type Trigger struct {

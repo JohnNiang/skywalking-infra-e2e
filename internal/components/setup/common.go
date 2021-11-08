@@ -57,8 +57,9 @@ func RunStepsAndWait(steps []config.Step, waitTimeout time.Duration, k8sCluster 
 			}
 		} else if step.Command != "" && step.Path == "" {
 			command := config.Run{
-				Command: step.Command,
-				Waits:   step.Waits,
+				Command:        step.Command,
+				Waits:          step.Waits,
+				RetryWaitAfter: step.RetryWaitAfter,
 			}
 
 			err := RunCommandsAndWait(command, waitTimeout, k8sCluster)
@@ -136,7 +137,7 @@ func RunCommandsAndWait(run config.Run, timeout time.Duration, cluster *util.K8s
 	}
 
 	waitSet.WaitGroup.Add(1)
-	go executeCommandsAndWait(commands, run.Waits, waitSet, cluster)
+	go executeCommandsAndWait(commands, run.RetryWaitAfter, run.Waits, waitSet, cluster)
 
 	go func() {
 		waitSet.WaitGroup.Wait()
@@ -156,7 +157,7 @@ func RunCommandsAndWait(run config.Run, timeout time.Duration, cluster *util.K8s
 	return nil
 }
 
-func executeCommandsAndWait(commands string, waits []config.Wait, waitSet *util.WaitSet, cluster *util.K8sClusterInfo) {
+func executeCommandsAndWait(commands string, retryWaitAfter time.Duration, waits []config.Wait, waitSet *util.WaitSet, cluster *util.K8sClusterInfo) {
 	defer waitSet.WaitGroup.Done()
 
 	// executes commands
@@ -171,22 +172,35 @@ func executeCommandsAndWait(commands string, waits []config.Wait, waitSet *util.
 	// waits for conditions meet
 	for idx := range waits {
 		wait := waits[idx]
-		logger.Log.Infof("waiting for %+v", wait)
-
-		options, err := getWaitOptions(cluster, &wait)
-		if err != nil {
-			err = fmt.Errorf("commands: [%s] get wait options error: %s", commands, err)
-			waitSet.ErrChan <- err
+		waitFor(commands, wait, waitSet, cluster)
+		if wait.RetryWaitAfter > 0 {
+			logger.Log.Info("Retry wait after [%v]", wait.RetryWaitAfter)
+			time.Sleep(wait.RetryWaitAfter)
+			waitFor(commands, wait, waitSet, cluster)
+		} else if retryWaitAfter > 0 {
+			logger.Log.Info("Retry wait after [%v]", retryWaitAfter)
+			time.Sleep(wait.RetryWaitAfter)
+			waitFor(commands, wait, waitSet, cluster)
 		}
-
-		err = options.RunWait()
-		if err != nil {
-			err = fmt.Errorf("commands: [%s] waits error: %s", commands, err)
-			waitSet.ErrChan <- err
-			return
-		}
-		logger.Log.Infof("wait %+v condition met", wait)
 	}
+}
+
+func waitFor(commands string, wait config.Wait, waitSet *util.WaitSet, cluster *util.K8sClusterInfo) {
+	logger.Log.Infof("waiting for %+v", wait)
+
+	options, err := getWaitOptions(cluster, &wait)
+	if err != nil {
+		err = fmt.Errorf("commands: [%s] get wait options error: %s", commands, err)
+		waitSet.ErrChan <- err
+	}
+
+	err = options.RunWait()
+	if err != nil {
+		err = fmt.Errorf("commands: [%s] waits error: %s", commands, err)
+		waitSet.ErrChan <- err
+		return
+	}
+	logger.Log.Infof("wait %+v condition met", wait)
 }
 
 // NewTimeout calculates new timeout since timeBefore.
