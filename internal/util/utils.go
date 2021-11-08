@@ -130,14 +130,17 @@ func ExportEnvVars(envFile string) {
 type RetryFunc func() error
 
 func RetryAfter(retry RetryFunc, retryAfter time.Duration) error {
-	if err := retry(); err != nil {
-		return err
-	}
-	if retryAfter > 0 {
-		time.Sleep(retryAfter)
+	for {
 		if err := retry(); err != nil {
 			return err
 		}
+		if retryAfter <= 0 {
+			break
+		}
+		logger.Log.Infof("Retry after %v", retryAfter)
+		time.Sleep(retryAfter)
+		// reset retry after
+		retryAfter = 0
 	}
 	return nil
 }
