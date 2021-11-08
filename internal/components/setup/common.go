@@ -61,9 +61,9 @@ func RunStepsAndWait(steps []config.Step, waitTimeout time.Duration, k8sCluster 
 				Waits:          step.Waits,
 				RetryWaitAfter: step.RetryWaitAfter,
 			}
-
-			err := RunCommandsAndWait(command, waitTimeout, k8sCluster)
-			if err != nil {
+			if err := util.RetryAfter(func() error {
+				return RunCommandsAndWait(command, waitTimeout, k8sCluster)
+			}, step.RetryWaitAfter); err != nil {
 				return err
 			}
 		} else {
@@ -137,7 +137,7 @@ func RunCommandsAndWait(run config.Run, timeout time.Duration, cluster *util.K8s
 	}
 
 	waitSet.WaitGroup.Add(1)
-	go executeCommandsAndWait(commands, run.RetryWaitAfter, run.Waits, waitSet, cluster)
+	go executeCommandsAndWait(commands, run.Waits, waitSet, cluster)
 
 	go func() {
 		waitSet.WaitGroup.Wait()
@@ -157,7 +157,7 @@ func RunCommandsAndWait(run config.Run, timeout time.Duration, cluster *util.K8s
 	return nil
 }
 
-func executeCommandsAndWait(commands string, retryWaitAfter time.Duration, waits []config.Wait, waitSet *util.WaitSet, cluster *util.K8sClusterInfo) {
+func executeCommandsAndWait(commands string, waits []config.Wait, waitSet *util.WaitSet, cluster *util.K8sClusterInfo) {
 	defer waitSet.WaitGroup.Done()
 
 	// executes commands
@@ -172,16 +172,10 @@ func executeCommandsAndWait(commands string, retryWaitAfter time.Duration, waits
 	// waits for conditions meet
 	for idx := range waits {
 		wait := &waits[idx]
-		if wait.RetryWaitAfter == 0 {
-			// set retry wait after if not set
-			wait.RetryWaitAfter = retryWaitAfter
-		}
-		waitFor(commands, wait, waitSet, cluster)
-		if wait.RetryWaitAfter > 0 {
-			logger.Log.Infof("retrying the wait after [%v]", wait.RetryWaitAfter)
-			time.Sleep(wait.RetryWaitAfter)
+		_ = util.RetryAfter(func() error {
 			waitFor(commands, wait, waitSet, cluster)
-		}
+			return nil
+		}, wait.RetryWaitAfter)
 	}
 }
 

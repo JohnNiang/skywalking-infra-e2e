@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/apache/skywalking-infra-e2e/internal/logger"
 )
@@ -124,4 +125,19 @@ func ExportEnvVars(envFile string) {
 			logger.Log.Warnf("failed to export environment variable %v=%v, %v", key, val, err)
 		}
 	}
+}
+
+type RetryFunc func() error
+
+func RetryAfter(retry RetryFunc, retryAfter time.Duration) error {
+	if err := retry(); err != nil {
+		return err
+	}
+	if retryAfter > 0 {
+		time.Sleep(retryAfter)
+		if err := retry(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
