@@ -171,24 +171,26 @@ func executeCommandsAndWait(commands string, retryWaitAfter time.Duration, waits
 
 	// waits for conditions meet
 	for idx := range waits {
-		wait := waits[idx]
+		wait := &waits[idx]
 		waitFor(commands, wait, waitSet, cluster)
+		var retryAfter time.Duration
 		if wait.RetryWaitAfter > 0 {
-			logger.Log.Info("Retry wait after [%v]", wait.RetryWaitAfter)
-			time.Sleep(wait.RetryWaitAfter)
-			waitFor(commands, wait, waitSet, cluster)
+			retryAfter = wait.RetryWaitAfter
 		} else if retryWaitAfter > 0 {
-			logger.Log.Info("Retry wait after [%v]", retryWaitAfter)
+			retryAfter = retryWaitAfter
+		}
+		if retryAfter > 0 {
+			logger.Log.Infof("retrying the wait after [%v]", wait.RetryWaitAfter)
 			time.Sleep(wait.RetryWaitAfter)
 			waitFor(commands, wait, waitSet, cluster)
 		}
 	}
 }
 
-func waitFor(commands string, wait config.Wait, waitSet *util.WaitSet, cluster *util.K8sClusterInfo) {
+func waitFor(commands string, wait *config.Wait, waitSet *util.WaitSet, cluster *util.K8sClusterInfo) {
 	logger.Log.Infof("waiting for %+v", wait)
 
-	options, err := getWaitOptions(cluster, &wait)
+	options, err := getWaitOptions(cluster, wait)
 	if err != nil {
 		err = fmt.Errorf("commands: [%s] get wait options error: %s", commands, err)
 		waitSet.ErrChan <- err
