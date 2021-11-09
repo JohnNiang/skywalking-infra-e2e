@@ -94,7 +94,7 @@ func KindSetup(e2eConfig *config.E2EConfig) error {
 		util.ExportEnvVars(profilePath)
 	}
 
-	if err := createKindCluster(kindConfigPath, e2eConfig); err != nil {
+	if err := createKindCluster(os.ExpandEnv(kindConfigPath), e2eConfig); err != nil {
 		return err
 	}
 
